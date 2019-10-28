@@ -1,0 +1,7 @@
+(deftype (Hit f) [t f
+                  p (Vector3 f)
+                  normal (Vector3 f)
+                  material (Fn [(Ref (Ray f)) (Ref (Hit f))] (Maybe (Scatter f)))
+                  ])
+
+(definterface hit (λ [h (Ref (Ray f)) f f] (Maybe (Hit f))))

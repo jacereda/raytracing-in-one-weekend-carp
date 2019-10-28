@@ -1,0 +1,36 @@
+(deftype (Sphere f) [center (Vector3 f)
+                     radius f
+                     material (Fn [(Ref (Ray f)) (Ref (Hit f))] (Maybe (Scatter f)))])
+
+(defmodule Sphere
+  (defn hit [s ray t-min t-max]
+    (let [
+          cs (center s)
+          oc (Vector3.sub (Ray.origin ray) cs)
+          dr (Ray.direction ray)
+          a (Vector3.dot dr dr)
+          b (Vector3.dot &oc dr)
+          sr @(radius s)
+          c (- (Vector3.dot &oc &oc) (Generics.squared sr))
+          discriminant (- (Generics.squared b) (* a c))
+          ]
+      (if (<= discriminant (zero))
+        (Maybe.Nothing)
+        (let [
+              nb (neg b)
+              sq (sqrt discriminant)
+              t (/ (- nb sq) a)
+              valid-hit? (fn [t] (between t t-min t-max))
+              success (fn [t]
+                        (let [p (point-at ray t)
+                              n (Vector3.div &(Vector3.sub &p cs) sr)
+                              ]
+                          (Maybe.Just (Hit.init t p n @(material s)))))
+              ]
+          (if (valid-hit? t)
+            (success t)
+            (let [t2 (/ (+ nb sq) a)]
+              (if (valid-hit? t2)
+                (success t2)
+                (Maybe.Nothing))))))))
+  )

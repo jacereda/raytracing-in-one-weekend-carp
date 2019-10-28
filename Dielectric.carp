@@ -1,0 +1,43 @@
+(with Generics
+(defn refract [v n ni-over-nt]
+  (let [uv (Vector3.normalize v)
+        dt (Vector3.dot &uv n)
+        discriminant (- (one) (* (squared ni-over-nt) (- (one) (squared dt))))
+        ]
+    (if (> discriminant (zero))
+      (Maybe.Just (Vector3.sub &(Vector3.mul
+                                 &(Vector3.sub &uv &(Vector3.mul n dt))
+                                 ni-over-nt)
+                               &(Vector3.mul n (sqrt discriminant))))
+      (Maybe.Nothing))))
+
+(defn schlick [cosine ref-idx]
+  (let [r0 (squared (/ (- (one) ref-idx)
+                       (+ (one) ref-idx)))
+        ]
+    (+ r0 (* (- (one) r0) (pow (- (one) cosine) (five))))))
+
+(defn dielectric [ref-idx]
+  (fn [ray hit]
+    (let [hn (Hit.normal hit)
+          rd (Ray.direction ray)
+          reflected (reflect rd hn)
+          pos (pos? (Vector3.dot rd hn))
+          ddn (/ (Vector3.dot rd hn) (Vector3.mag rd))
+          outward-normal (if pos (Vector3.neg hn) @hn)
+          ni-over-nt (if pos ref-idx (inverse ref-idx))
+          cosine (if pos (* ref-idx ddn) (neg ddn))
+          attenuation (Vector3.init (one) (one) (one))
+          ]
+      (Maybe.Just
+       (Scatter.init
+        attenuation
+        (Ray.init
+         @(Hit.p hit)
+         (match (refract rd &outward-normal ni-over-nt)
+                (Maybe.Just refracted) (if (< (random-0-1) (schlick cosine ref-idx))
+                                         reflected
+                                         refracted)
+                (Maybe.Nothing) reflected)))))))
+
+)

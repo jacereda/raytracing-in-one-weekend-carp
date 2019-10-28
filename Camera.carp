@@ -1,0 +1,61 @@
+(deftype (Camera f)
+    [origin (Vector3 f)
+     u (Vector3 f)
+     v (Vector3 f)
+     w (Vector3 f)
+     lower-left (Vector3 f)
+     horizontal (Vector3 f)
+     vertical (Vector3 f)
+     lens-radius f
+     ])
+
+
+(defmodule Camera
+(with Generics
+  (defn create [look-from look-at vup vfov-degrees aspect aperture focus-dist]
+    (let [theta (Geometry.degree-to-radians vfov-degrees)
+          half-height (tan (halved theta))
+          half-width (* aspect half-height)
+	  dir (Vector3.sub &look-from &look-at)
+          w (Vector3.normalize &dir)
+          u (Vector3.normalize &(Vector3.cross &vup &w))
+          v (Vector3.cross &w &u)
+          hwu (Vector3.mul &u half-width)
+          hhv (Vector3.mul &v half-height)
+          ll (Vector3.sub
+              &look-from
+              &(Vector3.mul
+                &(Vector3.add &(Vector3.add &hwu &hhv) &w)
+                focus-dist))
+          tfd (twice focus-dist)
+          hor (Vector3.mul &hwu tfd)
+          ver (Vector3.mul &hhv tfd)
+          ]
+      (Camera.init
+       look-from
+       u
+       v
+       w
+       ll
+       hor
+       ver
+       (halved aperture))))
+
+
+  (defn get-ray [c s t]
+    (let [
+          rd (Vector3.mul &(random-in-unit-disc) @(lens-radius c))
+          offset (Vector3.add
+                  &(Vector3.mul (u c) @(Vector3.x &rd))
+                  &(Vector3.mul (v c) @(Vector3.y &rd)))
+          ori (Vector3.add (origin c) &offset)
+          dir (Vector3.add
+               (lower-left c)
+               &(Vector3.sub
+                 &(Vector3.add
+                   &(Vector3.mul (horizontal c) s)
+                   &(Vector3.mul (vertical c) t))
+                 &ori))
+      ]
+      (Ray.init ori dir)))
+  ))

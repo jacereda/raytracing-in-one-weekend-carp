@@ -1,0 +1,186 @@
+(Project.config "compiler" "/usr/bin/clang")
+;(Project.config "compiler" "gcc")
+;(Project.config "compiler" "clang")
+;(Project.config "compiler" "/nix/store/2qf9sxv0znq0wikmbp7zff30knnklr0x-clang-wrapper-8.0.1/bin/clang")
+(add-cflag "-mavx -flto -ffunction-sections -fdata-sections -ffast-math -O3 -fomit-frame-pointer")
+;(add-cflag "-ffast-math -O1 -g")
+;(add-cflag "-mavx -g -O2 -finline -fno-omit-frame-pointer")
+(load "Debug.carp")
+(load "Vector.carp")
+(load "Geometry.carp")
+(load "RandomVec.carp")
+(load "Ray.carp")
+(load "Camera.carp")
+(load "Hittable.carp")
+(load "Material.carp")
+(load "Lambertian.carp")
+(load "Metal.carp")
+(load "Dielectric.carp")
+(load "Hittables.carp")
+(load "Sphere.carp")
+(load "FPE.carp")
+(use Ray)
+(use Maybe)
+
+(deftype RGB [r Char g Char b Char])
+
+
+(defmodule Array
+  (defn cartesian [f a b]
+  (let-do [n (length a)
+           r (allocate (Generics.squared n))
+           ]
+    (for [i 0 n]
+      (let [s (* i n)]
+        (for [j 0 n]
+          (aset-uninitialized! &r
+                               (+ s j)
+                               (~f (nth a i)
+                                (nth a j))))))
+    r))
+  )
+
+(defn color [r world depth]
+  (let [
+        dr (direction r)
+        unit-dir (Vector3.normalize dr)
+        t (Generics.halved (+ @(Vector3.y &unit-dir) (Generics.one)))
+        black (Vector3.init 0.0f 0.0f 0.0f)
+        uxyz (Vector3.init 1.0f 1.0f 1.0f)
+        sky (Vector3.vlerp
+             &(Vector3.init 0.5f 0.7f 1.0f)
+             &uxyz
+             t)
+        ]
+    (match (Hittables.closest-hit world r 0.001f Float.MAX)
+           (Just rec) (if (< depth 50)
+                        (let [mat @(Hit.material &rec)]
+                          (match (mat r &rec)
+                                 (Just sca) (let [at (Scatter.attenuation &sca)
+                                                  sc (Scatter.scattered &sca)
+                                                  ncol (color sc world (inc depth))
+                                                  ]
+                                              (Vector3.cmul &ncol at))
+                                 (Nothing) black))
+                        black)
+           (Nothing) sky)))
+
+(defn random-scene []
+  (let [rng (Array.range -11.0f 11.0f 1.0f)
+        ucenters (Array.cartesian
+                  &(fn [a b]
+                     (Vector3.init (+ @a (* 0.9f (random-0-1)))
+                                   0.2f
+                                   (+ @b (* 0.9f (random-0-1)))))
+                  &rng
+                  &rng)
+        centers (Array.copy-filter
+                 &(fn [c] (> (Vector3.dist &(Vector3.init 4.0f 0.2f 0.0f) c) 0.9f))
+                 &ucenters)
+        mats (Array.repeat
+              (Array.length &centers)
+              &(fn []
+                 (let [choose-mat (random-0-1)
+                       random-sq (fn [] (* (random-0-1) (random-0-1)))
+                       random-05-1 (fn [] (random-between 0.5f 1.0f))
+                       ]
+                   (cond
+                     (< choose-mat 0.8f) (lambertian (Vector3.init
+                                                       (random-sq)
+                                                       (random-sq)
+                                                       (random-sq)))
+                     (< choose-mat 0.95f) (metal (Vector3.init
+                                                   (random-05-1)
+                                                   (random-05-1)
+                                                   (random-05-1))
+                                                 (Generics.halved (random-0-1)))
+                     (dielectric 1.5f)))))
+        spheres (Array.zip &(fn [cen mat] (Sphere.init @cen 0.2f @mat))
+                           &centers
+                           &mats)
+        hardcoded [(Sphere.init (Vector3.init 0.0f -1000.0f 0.0f)
+                                1000.0f
+                                (lambertian (Vector3.init 0.5f 0.5f 0.5f)))
+                   (Sphere.init (Vector3.init 0.0f 1.0f 0.0f)
+                                1.0f
+                                (dielectric 1.5f))
+                   (Sphere.init (Vector3.init -4.0f 1.0f 0.0f)
+                                1.0f
+                                (lambertian (Vector3.init 0.4f 0.2f 0.1f)))
+                   (Sphere.init (Vector3.init 4.0f 1.0f 0.0f)
+                                1.0f
+                                (metal (Vector3.init 0.7f 0.6f 0.5f) 0.0f))
+                   ]
+        ]
+    (Array.concat &[hardcoded spheres])))
+
+
+(defn main2 []
+  (let [
+        nx 600 ; 1200
+        ny 400 ; 800
+        ns 10 ; 100
+        world (Hittables.init (random-scene))
+        xworld (Hittables.init
+               [(Sphere.init (Vector3.init 0.0f 0.0f -1.0f)
+                             0.5f
+                             (lambertian (Vector3.init 0.1f 0.2f 0.5f)))
+                (Sphere.init (Vector3.init 0.0f -100.5f -1.0f)
+                             100.0f
+                             (lambertian (Vector3.init 0.8f 0.8f 0.0f)))
+                (Sphere.init (Vector3.init 1.0f 0.0f -1.0f)
+                             0.5f
+                             (metal (Vector3.init 0.8f 0.6f 0.2f) 0.3f))
+                (Sphere.init (Vector3.init -1.0f 0.0f -1.0f)
+                             0.5f
+                             (dielectric 1.5f))
+                (Sphere.init (Vector3.init -1.0f 0.0f -1.0f)
+                             -0.45f
+                             (dielectric 1.5f))
+                ])
+        look-from (Vector3.init 13.0f 2.0f 3.0f)
+        look-at (Vector3.init 0.0f 0.0f 0.0f)
+        vup (Vector3.init 0.0f 1.0f 0.0f)
+        dist-to-focus 10.0f ; (Vector3.dist &look-from &look-at)
+        aperture 0.1f ; 2.0f
+        cam (Camera.create
+             look-from
+             look-at
+             vup
+             20.0f
+             (/ (from-int nx) (from-int ny))
+             aperture
+             dist-to-focus
+             )
+        ]
+    (do
+      (IO.print &(fmt "P6\n%d %d\n255\n" nx ny))
+      (for [j (- ny 1) -1 -1]
+        (for [i 0 nx]
+          (let-do [
+                   col (Vector3.zero)
+                   comp (fn [x] (from-int (to-int (* 255.99f (sqrt (/ x (from-int ns)))))))
+                ]
+            (for [s 0 ns]
+              (let [u (/ (+ (from-int i) (random-0-1)) (from-int nx))
+                    v (/ (+ (from-int j) (random-0-1)) (from-int ny))
+                    r (Camera.get-ray &cam u v)
+                    ]
+                (set! col (Vector3.add &col &(color &r &world 0)))))
+              (IO.fwrite &(RGB.init
+                           (comp @(Vector3.x &col))
+                           (comp @(Vector3.y &col))
+                           (comp @(Vector3.z &col)))
+                         3
+                         1
+                         IO.stdout)))))))
+
+(defn main []
+  (do
+    ; (with FPE
+    ;       (enable-exceptions (sum*
+    ;                           division-by-zero
+    ;                           invalid
+    ;                           overflow
+    ;                           )))
+    (main2)))

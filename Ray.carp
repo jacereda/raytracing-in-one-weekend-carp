@@ -1,0 +1,6 @@
+(deftype (Ray f) [origin (Vector3 f)
+                  direction (Vector3 f)
+                  ])
+
+(defn point-at [r t]
+  (Vector3.add (Ray.origin r) &(Vector3.mul (Ray.direction r) t)))

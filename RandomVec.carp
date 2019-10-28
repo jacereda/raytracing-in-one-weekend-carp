@@ -1,0 +1,17 @@
+(with Generics
+(defn random-in-unit-disc []
+  (let [p (Vector3.init (random--1-1) (random--1-1) (zero))
+        d (Vector3.dot &p &p)
+        ]
+    (if (< d (one))
+      p
+      (random-in-unit-disc))))
+
+(defn random-in-unit-sphere []
+  (let [p (Vector3.init (random--1-1) (random--1-1) (random--1-1))
+        d (Vector3.dot &p &p)
+        ]
+    (if (< d (one))
+      p
+      (random-in-unit-sphere))))
+)

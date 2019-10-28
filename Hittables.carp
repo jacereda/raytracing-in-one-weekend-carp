@@ -1,0 +1,18 @@
+(deftype (Hittables h) [elts (Array h)])
+
+(defmodule Hittables
+  (deftype (CurrentHit f) [hr (Maybe (Hit f))  dist f])
+
+  (defn closest-hit [hs ray t-min t-max]
+    (let [closest (fn [cur h]
+                    (match (hit h ray t-min @(CurrentHit.dist &cur))
+                           (Maybe.Just hr) (let [rt @(Hit.t &hr)]
+                                             (CurrentHit.init (Maybe.Just hr) rt))
+                           (Maybe.Nothing) cur))
+          ]
+      @(CurrentHit.hr
+        &(Array.reduce
+          &closest
+          (CurrentHit.init (Maybe.Nothing) t-max)
+          (Hittables.elts hs)))))
+  )

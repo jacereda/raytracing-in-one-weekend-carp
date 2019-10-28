@@ -1,0 +1,1 @@
+(deftype (Scatter f) [attenuation (Vector3 f)  scattered (Ray f)])

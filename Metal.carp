@@ -1,0 +1,15 @@
+
+(defn reflect [v n]
+  (Vector3.sub v &(Vector3.mul n (Generics.twice (Vector3.dot v n)))))
+
+(defn metal [albedo fuzz]
+  (fn [ray hit]
+    (let [hn (Hit.normal hit)
+          reflected (reflect (Ray.direction ray) hn)
+          d (Vector3.add &reflected &(Vector3.mul &(random-in-unit-sphere) fuzz))
+          ]
+      (if (<= (Vector3.dot &d hn) (zero))
+        (Maybe.Nothing)
+        (Maybe.Just (Scatter.init
+                     @&albedo
+                     (Ray.init @(Hit.p hit) d)))))))

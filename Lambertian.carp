@@ -1,0 +1,8 @@
+(defn lambertian [albedo]
+  (fn [ray hit]
+    (let [
+          hp (Hit.p hit)
+          target (Vector3.add &(Vector3.add hp (Hit.normal hit)) &(random-in-unit-sphere))
+          rt (Vector3.sub &target hp)
+          ]
+      (Maybe.Just (Scatter.init @&albedo (Ray.init @hp rt))))))
